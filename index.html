@@ -71,7 +71,8 @@ function load(){
   return s}
 const SV=load();let noSave=0;
 function save(){if(noSave)return;SV.pos={x:+P.x.toFixed(1),y:+P.y.toFixed(1),d:P.d};SV.mute=mute?1:0;store.set(SV)}
-function resetGame(){noSave=1;try{localStorage.removeItem(SAVE_KEY)}catch(e){}location.reload()}
+function resetGame(){noSave=1;try{localStorage.setItem(SAVE_KEY,JSON.stringify({tabs:SV.tabs,intro:1}))}catch(e){}location.reload()}  /* wipes progress but KEEPS the tab counter */
+const MAX_TABS=5; /* tab switches allowed. MORE than this (6th time) = greeting + link stay locked */
 /* Funny end-screen line for the tab-switch counter */
 const peek=n=>n<1?'😇 Zero tab switches. You played fair, respect!':n<4?`👀 Caught you peeking! You left this tab <b>${n}</b> time${n>1?'s':''}.`:n<11?`🕵️ You left this tab <b>${n}</b> times. Was Google helpful?`:`🚨 You switched tabs <b>${n}</b> times! Did you read the whole internet?`;
 
@@ -167,13 +168,14 @@ cv.onpointerdown=e=>{if(paused)return;const r=cv.getBoundingClientRect(),s=Math.
 /* ===== FLOW ===== */
 function startGame(){SV.intro=1;save();hide()}
 function welcome(){const c=cnt();show(`<h2>Welcome back, ${CFG.name}! 🎈</h2><p>${SV.done?'You already opened the big gift. Feel free to open it again!':c?`Your progress was saved: <b>${c}/${NG}</b> keys collected.`:'Your gift is still waiting for you. Let\'s continue!'}</p><button class="ok" onclick="hide()">Continue</button>`)}
-function intro(){if(SV.intro)return welcome();show(`<h2>Hello, ${CFG.name}! 🎈</h2><p>There's a special gift on the middle table, but it's locked tight. Solve <b>${NG} logic puzzles</b> from the ${NG} small gifts to collect all the keys. It won't be easy, so be patient!</p><p style="font-size:18px;opacity:.8">Move: arrow keys / WASD or tap the screen · Open a gift: E / Space / tap the gift</p><p style=\"font-size:18px;opacity:.8\">Your progress is saved automatically on this device.</p><button class="ok" onclick="startGame()">Start</button>`)}
+function intro(){if(SV.intro)return welcome();show(`<h2>Hello, ${CFG.name}! 🎈</h2><p>There's a special gift on the middle table, but it's locked tight. Solve <b>${NG} logic puzzles</b> from the ${NG} small gifts to collect all the keys. It won't be easy, so be patient!</p><p style="font-size:18px;opacity:.8">Move: arrow keys / WASD or tap the screen · Open a gift: E / Space / tap the gift</p><p style="font-size:18px;opacity:.8">Your progress is saved automatically on this device.</p><button class="ok" onclick="startGame()">Start</button>`)}
 function win(k){
   solved[k]=1;save();snd('key');hud();const c=cnt();
   show(`<h2>🔑 Key ${c} collected!</h2><p>${c<NG?`${NG-c} more small gift${NG-c>1?'s':''} left in the room.`:'All keys collected! Open the big gift on the table.'}</p><button class="ok" onclick="hide()">Continue</button>`);
 }
 function bigGift(){
   if(cnt()<NG){snd('locked',.5);return show(`<h2>The big gift is locked 🔒</h2><p>You need ${NG} keys. You only have ${cnt()}.</p><button class="ok" onclick="hide()">OK</button>`)}
+  if(SV.tabs>MAX_TABS){SV.done=1;save();snd('wrong',.6);return show(`<img src="assets/big.png" class="big" style="filter:grayscale(1) brightness(.7)"><h2>Oh no, ${CFG.name}! 🔒</h2><p>You left this tab <b>${SV.tabs}</b> times (the limit was ${MAX_TABS}), so the birthday greeting and the link stay locked.</p><p style="color:#ff6b6b">Next time, no peeking! 😜</p><button class="x" onclick="hide()">Close</button>`)}
   show(`<img src="assets/big.png" class="big"><h2>Happy Birthday, ${CFG.name}! 🎉</h2><p>${CFG.message}</p><p style="color:#ffcf4a">${peek(SV.tabs)}</p><button class="ok" onclick="confetti();birthday()">More confetti 🎊</button> <button class="x" onclick="resetGame()">Play again</button> <button class="x" onclick="hide()">Close</button>`);
   SV.done=1;save();snd('open');setTimeout(()=>snd('win'),250);birthday();confetti();music(0);
 }
