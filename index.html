@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Birthday Gift</title>
+<style>
+/* Font: m5x7 by Daniel Linssen (managore.itch.io/m5x7) */
+@font-face{font-family:"m5x7";src:url("assets/fonts/m5x7.ttf") format("truetype");font-display:block}
+*{box-sizing:border-box}
+:root{--u:clamp(34px,9vmin,58px)}
+html,body{margin:0;height:100%;overflow:hidden;background:#1d1330;color:#fff7e6;font-family:"m5x7","Trebuchet MS",system-ui,sans-serif;font-size:20px;user-select:none;touch-action:manipulation}
+button{font-family:inherit}
+#g{position:fixed;inset:0;width:100%;height:100%;object-fit:contain;image-rendering:pixelated;background:#1d1330}
+#hud{position:fixed;top:8px;left:8px;display:flex;gap:6px;align-items:center;z-index:4;font-size:20px;background:#000a;padding:4px 8px;border-radius:10px}
+#hud button{border:0;background:#ffffff33;border-radius:8px;font-size:20px;padding:3px 8px;color:#fff;cursor:pointer}
+#toast{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);background:#000c;padding:6px 12px;border-radius:12px;font-size:20px;opacity:0;transition:.25s;white-space:nowrap;z-index:4}
+.ok,.x{font:inherit;font-size:24px;border:0;border-radius:10px;background:#ffcf4a;color:#2a1f3d;font-weight:700;padding:10px 14px;cursor:pointer;margin:2px}
+.x{background:#ffffff33;color:#fff7e6}
+#modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:12px;z-index:5}
+#box{background:#2f2147;border:3px solid #ffcf4a;border-radius:14px;padding:16px;max-width:440px;width:100%;text-align:center;max-height:96vh;overflow:auto}
+#box h2{margin:0 0 6px;font-size:32px;line-height:1.1}#box p{font-size:22px;line-height:1.2;margin:6px 0}
+.gr{display:grid;gap:5px;margin:12px auto;width:max-content}
+.cell,.t{width:var(--u);height:var(--u);border:2px solid #fff7e6;border-radius:10px;background:#1d1330;font-size:calc(var(--u)*.5);cursor:pointer;padding:0;color:#fff}
+.cell.on{background:#5a2a6e}.cell.on::after{content:"🔥"}
+.t{border:0;font-weight:700;font-size:calc(var(--u)*.6)}
+.pp{font-size:calc(var(--u)*.75);color:#777;background:#2a1f3d;border:1px solid #3d2f57;line-height:1}
+.pp.on{color:#ffcf4a;background:#4a3a1d}
+.lamp{height:calc(var(--u)*1.5);width:calc(var(--u)*1.8);border:3px solid #fff7e6;border-radius:14px;opacity:.45;cursor:pointer;transition:.15s}
+.lamp.f{opacity:1;transform:scale(1.08);box-shadow:0 0 18px #fff}
+.cl{text-align:left;font-size:22px;padding-left:20px;line-height:1.2;margin:6px 0}
+.lock{display:flex;justify-content:center;gap:10px;margin:10px 0}
+.lock div{display:flex;flex-direction:column;align-items:center;gap:4px}
+.lock b{font-size:40px;width:46px;background:#1d1330;border-radius:8px}
+.lock button{border:0;background:#fff7e6;border-radius:6px;width:46px;cursor:pointer}
+.tw{display:flex;gap:8px;justify-content:center;margin:12px 0}
+.pg{display:flex;flex-direction:column-reverse;align-items:center;width:92px;height:150px;border-bottom:6px solid #fff7e6;border-radius:6px 6px 0 0;cursor:pointer}
+.pg.sel{background:#5a2a6e}.pg i{height:20px;border-radius:6px;margin-top:2px}
+.rw{display:flex;gap:6px;align-items:center;text-align:left;font-size:22px;line-height:1.1;margin:6px 0}
+.rw b{min-width:18px}.rw button{border:0;border-radius:8px;padding:6px;min-width:104px;font:inherit;font-size:20px;cursor:pointer;background:#fff7e6;color:#2a1f3d}
+.big{width:200px;animation:b 1s infinite alternate}
+@keyframes b{to{transform:translateY(-8px)}}
+#cf{position:fixed;inset:0;pointer-events:none;z-index:9}
+</style></head>
+<body>
+<canvas id="g" width="256" height="176"></canvas>
+<div id="hud"><span id="kc">🔑 0/7</span><button id="mute" title="Sound & music">🔊</button><button id="fs" title="Fullscreen">⛶</button></div>
+<div id="toast"></div>
+<div id="modal"><div id="box"></div></div>
+<canvas id="cf"></canvas>
+<script>
+/* ===== SETTINGS: edit here, or use a link like ?name=Rina&message=... ===== */
+const Q=new URLSearchParams(location.search);
+const CFG={name:Q.get('name')||Q.get('nama')||'My Friend',
+  message:Q.get('message')||Q.get('pesan')||'May you live a long and healthy life, and may all your dreams come true one by one. Thank you for being such a precious person!'};
+const $=s=>document.querySelector(s),box=$('#box'),M=$('#modal'),cv=$('#g'),ctx=cv.getContext('2d');
+const rn=n=>Math.random()*n|0,shuf=a=>{for(let i=a.length;i>1;){const j=rn(i--);[a[i],a[j]]=[a[j],a[i]]}return a};
+let paused=true,keys={},tgt=null;
+const show=h=>{box.innerHTML=h;M.style.display='flex';paused=true;tgt=null};
+const H=(t,p,b)=>show(`<h2>${t}</h2><p>${p}</p>${b}<button class="x" onclick="hide()">Close</button>`);
+const hide=()=>{if(M.style.display=='flex')snd('close',.4);stopMel();M.style.display='none';paused=false;music(1)};
+let tt;const toast=t=>{const e=$('#toast');e.textContent=t;e.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>e.style.opacity=0,2600)};
+
+/* ===== SAVE / LOAD (localStorage). Every access is guarded: Safari private mode or blocked storage just means "no saving", never a crash ===== */
+const SAVE_KEY='kartu-ulang-tahun:v1'; // unique name: every project on username.github.io shares ONE localStorage
+const store={last:'',
+  get(){try{return JSON.parse(localStorage.getItem(SAVE_KEY))||{}}catch(e){return{}}},
+  set(o){try{const j=JSON.stringify(o);if(j!==this.last){localStorage.setItem(SAVE_KEY,j);this.last=j}}catch(e){}}};
+function load(){
+  const r=store.get(),s={solved:{},pos:null,tabs:Math.max(0,r.tabs|0),intro:r.intro?1:0,done:r.done?1:0,mute:r.mute?1:0};
+  if(r.solved&&typeof r.solved=='object')for(const k of 'abcdefg')if(r.solved[k])s.solved[k]=1;
+  if(r.pos&&Number.isFinite(r.pos.x)&&Number.isFinite(r.pos.y))s.pos={x:r.pos.x,y:r.pos.y,d:r.pos.d|0};
+  return s}
+const SV=load();let noSave=0;
+function save(){if(noSave)return;SV.pos={x:+P.x.toFixed(1),y:+P.y.toFixed(1),d:P.d};SV.mute=mute?1:0;store.set(SV)}
+function resetGame(){noSave=1;try{localStorage.removeItem(SAVE_KEY)}catch(e){}location.reload()}
+/* Funny end-screen line for the tab-switch counter */
+const peek=n=>n<1?'😇 Zero tab switches. You played fair, respect!':n<4?`👀 Caught you peeking! You left this tab <b>${n}</b> time${n>1?'s':''}.`:n<11?`🕵️ You left this tab <b>${n}</b> times. Was Google helpful?`:`🚨 You switched tabs <b>${n}</b> times! Did you read the whole internet?`;
+
+/* ===== SFX & MUSIC (music is generated in code, no files) ===== */
+const SFX={};let mute=!!SV.mute,AC,mel=[];
+['step1','step2','step3','open','close','key','win','wrong','tap','tick','locked'].forEach(n=>{const a=new Audio('assets/sfx/'+n+'.mp3');a.preload='auto';SFX[n]=a});
+const snd=(n,v=.6)=>{if(mute)return;const a=SFX[n].cloneNode();a.volume=v;a.play().catch(()=>{})};
+const tone=(f,d=.3,v=.18)=>{if(mute)return;AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume();const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(AC.destination);o.start(t);o.stop(t+d)};
+const NOTE=[262,330,392,523];
+function birthday(){stopMel();let t=700;[[262,.5],[262,.5],[294,1],[262,1],[349,1],[330,2],[262,.5],[262,.5],[294,1],[262,1],[392,1],[349,2],[262,.5],[262,.5],[523,1],[440,1],[349,1],[330,1],[294,2],[466,.5],[466,.5],[440,1],[349,1],[392,1],[349,2]].forEach(([f,b])=>{mel.push(setTimeout(()=>tone(f,b*.38,.16),t));t+=b*380})}
+const stopMel=()=>{mel.forEach(clearTimeout);mel=[]};
+/* Background music: Am-F-C-G progression, bass + arpeggio + pentatonic melody */
+let mtm,mi=0;const RT=[110,87.3,130.8,98],QL=[[0,3,7,12],[0,4,7,12],[0,4,7,12],[0,4,7,12]],ML=[440,523,587,659,784,880,659,587];
+function music(on){clearInterval(mtm);if(!on)return;mtm=setInterval(()=>{const b=mi>>3&3,r=RT[b],q=QL[b],s=mi&7;if(!(s&3))tone(r,.7,.07);tone(r*2*2**(q[s&3]/12),.25,.04);if(s%2==0&&(mi*7%5)!=1)tone(ML[(mi*3+(mi>>4))%8],.35,.045);mi++},240)}
+$('#mute').textContent=mute?'🔇':'🔊';
+$('#mute').onclick=()=>{mute=!mute;$('#mute').textContent=mute?'🔇':'🔊';if(mute)stopMel();save()};
+$('#fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen();
+
+/* ===== ASSETS ===== */
+const IMG={};
+Promise.all([...['char','room','int'].map(n=>new Promise(r=>{const i=new Image();i.onload=()=>r(IMG[n]=i);i.src='assets/'+n+'.png'})),
+  Promise.race([Promise.all([document.fonts.load('20px m5x7'),document.fonts.load('32px m5x7')]).catch(()=>{}),new Promise(r=>setTimeout(r,2500))])]).then(()=>{
+  ['red','navy','yel'].forEach(c=>{const i=new Image();i.src='assets/g_'+c+'.png';IMG[c]=i});
+  intro();requestAnimationFrame(loop);
+});
+const S={tbl:[92,161,40,38],rug:[112,240,64,48],shelf:[80,224,32,32],sofa:[116,215,40,23],w1:[114,390,27,22],w2:[146,390,27,22]};
+const spr=(k,x,y)=>ctx.drawImage(IMG.int,...S[k],x,y,S[k][2],S[k][3]);
+
+/* ===== WORLD ===== */
+const solved=SV.solved;
+const GD=[['a',30,122,()=>pA(),'red'],['b',214,130,()=>pB(),'navy'],['c',56,52,()=>pC(),'yel'],['d',196,56,()=>pD(),'red'],['e',24,84,()=>pE(),'navy'],['f',88,148,()=>pF(),'yel'],['g',168,148,()=>pG(),'red']];
+const GIFTS=GD.map(([id,x,y,f,c])=>({id,x,y,f,c,r:24}));GIFTS.push({id:'big',x:120,y:98,f:()=>bigGift(),r:32});
+const NG=GD.length,cnt=()=>GD.filter(g=>solved[g[0]]).length;
+const SOLID=[{x:8,y:30,w:32,h:10},{x:216,y:30,w:32,h:10},{x:108,y:34,w:40,h:11},{x:110,y:108,w:36,h:22}];
+GIFTS.forEach(g=>{if(g.id!='big')SOLID.push({x:g.x+2,y:g.y+8,w:12,h:8})});
+const P={x:128,y:166,d:3,t:0,mv:0};
+const hit=(x,y)=>{const r={x:x-5,y:y-4,w:10,h:4};return x<12||x>244||y<42||y>172||SOLID.some(o=>r.x<o.x+o.w&&r.x+r.w>o.x&&r.y<o.y+o.h&&r.y+r.h>o.y)};
+const near=()=>GIFTS.find(g=>Math.hypot(g.x+8-P.x,g.y+8-(P.y-6))<g.r);
+const hud=()=>$('#kc').textContent='🔑 '+cnt()+'/'+NG;hud();
+
+/* ===== AUTO-SAVE + TAB-SWITCH COUNTER ===== */
+/* restore the last position (ignored if it would put the player inside furniture) */
+if(SV.pos&&!hit(SV.pos.x,SV.pos.y)){P.x=SV.pos.x;P.y=SV.pos.y;if([0,1,2,3].includes(SV.pos.d))P.d=SV.pos.d}
+let away=false,leaving=false;
+const COUNT_APP_SWITCH=false; /* true = ALSO count Cmd+Tab to another app / clicking outside the page (can false-trigger, e.g. on the address bar) */
+const goAway=()=>{if(away||leaving)return;away=true;
+  /* tiny delay: a refresh/close also fires "hidden", but the page dies before this timer runs, so it is NOT counted */
+  setTimeout(()=>{if(leaving||SV.done)return;SV.tabs++;save()},50)};
+const comeBack=()=>{if(document.visibilityState=='visible'&&(!COUNT_APP_SWITCH||document.hasFocus()))away=false};
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState=='hidden'){goAway();save()}else comeBack()});
+if(COUNT_APP_SWITCH){addEventListener('blur',goAway);addEventListener('focus',comeBack)}
+addEventListener('pagehide',()=>{leaving=true;save()});   /* Safari-friendly "page is closing" save */
+addEventListener('pageshow',e=>{if(e.persisted)leaving=false});
+setInterval(save,2000);   /* position auto-save (writes only when something changed) */
+
+function loop(ts){
+  if(!paused){
+    let dx=(keys.arrowright||keys.d?1:0)-(keys.arrowleft||keys.a?1:0),dy=(keys.arrowdown||keys.s?1:0)-(keys.arrowup||keys.w?1:0);
+    if(dx||dy)tgt=null;else if(tgt){dx=Math.abs(tgt.x-P.x)>1?Math.sign(tgt.x-P.x):0;dy=Math.abs(tgt.y-P.y)>1?Math.sign(tgt.y-P.y):0}
+    const ox=P.x,oy=P.y;P.mv=dx||dy;
+    if(P.mv){P.d=dx>0?0:dx<0?2:dy<0?1:3;const sp=.9;
+      if(dx&&!hit(P.x+dx*sp,P.y))P.x+=dx*sp;
+      if(dy&&!hit(P.x,P.y+dy*sp))P.y+=dy*sp;const f0=Math.floor(P.t);P.t+=.18;if(Math.floor(P.t)!=f0&&Math.floor(P.t)%3==0)snd('step'+(1+Math.random()*3|0),.3)}
+    if(tgt&&(!P.mv||(P.x==ox&&P.y==oy))){const g=tgt.g;tgt=null;if(g&&near()===g)act()}
+  }
+  draw(ts/1000);requestAnimationFrame(loop);
+}
+function draw(t){
+  ctx.imageSmoothingEnabled=false;
+  for(let y=32;y<176;y+=16)for(let x=0;x<256;x+=16)ctx.drawImage(IMG.room,176,112,16,16,x,y,16,16);
+  for(let x=0;x<256;x+=16)ctx.drawImage(IMG.room,16,80,16,32,x,0,16,32);
+  spr('w1',60,6);spr('w2',164,6);spr('rug',96,92);
+  const n=near(),ready=cnt()==NG;
+  const L=[{b:40,f:()=>spr('shelf',8,8)},{b:40,f:()=>spr('shelf',216,8)},{b:45,f:()=>spr('sofa',108,22)},{b:134,f:()=>spr('tbl',108,96)},
+    {b:P.y,f:()=>{const row=(P.mv?64:32),fr=P.d*6+(Math.floor(P.t)%6);ctx.drawImage(IMG.char,fr*16,row,16,32,Math.round(P.x-8),Math.round(P.y-30),16,32)}}];
+  GIFTS.forEach(g=>L.push({b:g.id=='big'?140:g.y+16,f:()=>{
+    const done=g.id!='big'&&solved[g.id],bob=(g.id=='big'&&ready)?Math.sin(t*6)*2:0;
+    if(g.id=='big'){ctx.globalAlpha=ready?1:.8;ctx.drawImage(IMG.red,0,0,16,16,g.x,g.y+bob,16,16);ctx.globalAlpha=1}
+    else{ctx.globalAlpha=done?.4:1;ctx.drawImage(IMG[g.c],g.x,g.y,16,16);ctx.globalAlpha=1}
+    if(done){ctx.fillStyle='#4cd964';ctx.font='9px sans-serif';ctx.fillText('✔',g.x+4,g.y+10)}
+    if(n===g){ctx.fillStyle='#ffcf4a';ctx.fillText('▼',g.x+4,g.y-3+Math.sin(t*8)*1.5)}
+  }}));
+  L.sort((a,b)=>a.b-b.b).forEach(o=>o.f());
+}
+
+/* ===== CONTROLS: arrows/WASD, E/Space, or tap/click the screen ===== */
+const act=()=>{if(paused)return;const g=near();if(g){if(g.id!='big')snd('open');g.f()}else{snd('locked',.3);toast('Get close to a gift, then press E / tap it')}};
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(M.style.display=='flex')return;keys[k]=1;if(k==' '||k=='e'||k=='enter'){e.preventDefault();act()}if(k.startsWith('arrow'))e.preventDefault()});
+addEventListener('keyup',e=>delete keys[e.key.toLowerCase()]);
+cv.onpointerdown=e=>{if(paused)return;const r=cv.getBoundingClientRect(),s=Math.min(r.width/256,r.height/176),x=(e.clientX-r.left-(r.width-256*s)/2)/s,y=(e.clientY-r.top-(r.height-176*s)/2)/s;
+  const g=GIFTS.find(g=>Math.hypot(g.x+8-x,g.y+8-y)<14);tgt=g?{x:g.x+8,y:g.y+22,g}:{x,y:y+12,g:null};if(g&&near()===g){tgt=null;act()}};
+
+/* ===== FLOW ===== */
+function startGame(){SV.intro=1;save();hide()}
+function welcome(){const c=cnt();show(`<h2>Welcome back, ${CFG.name}! 🎈</h2><p>${SV.done?'You already opened the big gift. Feel free to open it again!':c?`Your progress was saved: <b>${c}/${NG}</b> keys collected.`:'Your gift is still waiting for you. Let\'s continue!'}</p><button class="ok" onclick="hide()">Continue</button>`)}
+function intro(){if(SV.intro)return welcome();show(`<h2>Hello, ${CFG.name}! 🎈</h2><p>There's a special gift on the middle table, but it's locked tight. Solve <b>${NG} logic puzzles</b> from the ${NG} small gifts to collect all the keys. It won't be easy, so be patient!</p><p style="font-size:18px;opacity:.8">Move: arrow keys / WASD or tap the screen · Open a gift: E / Space / tap the gift</p><p style=\"font-size:18px;opacity:.8\">Your progress is saved automatically on this device.</p><button class="ok" onclick="startGame()">Start</button>`)}
+function win(k){
+  solved[k]=1;save();snd('key');hud();const c=cnt();
+  show(`<h2>🔑 Key ${c} collected!</h2><p>${c<NG?`${NG-c} more small gift${NG-c>1?'s':''} left in the room.`:'All keys collected! Open the big gift on the table.'}</p><button class="ok" onclick="hide()">Continue</button>`);
+}
+function bigGift(){
+  if(cnt()<NG){snd('locked',.5);return show(`<h2>The big gift is locked 🔒</h2><p>You need ${NG} keys. You only have ${cnt()}.</p><button class="ok" onclick="hide()">OK</button>`)}
+  show(`<img src="assets/big.png" class="big"><h2>Happy Birthday, ${CFG.name}! 🎉</h2><p>${CFG.message}</p><p style="color:#ffcf4a">${peek(SV.tabs)}</p><button class="ok" onclick="confetti();birthday()">More confetti 🎊</button> <button class="x" onclick="resetGame()">Play again</button> <button class="x" onclick="hide()">Close</button>`);
+  SV.done=1;save();snd('open');setTimeout(()=>snd('win'),250);birthday();confetti();music(0);
+}
+
+/* 1. Candles 4x4 (Lights Out, EASY: scrambled with only 3 taps, so 3 taps or fewer always solve it) */
+function pA(){
+  const N=4,g=Array(N*N).fill(0),tog=i=>{const r=i/N|0,c=i%N;[[0,0],[1,0],[-1,0],[0,1],[0,-1]].forEach(([a,b])=>{const A=r+a,B=c+b;if(A>=0&&A<N&&B>=0&&B<N)g[A*N+B]^=1})};
+  do{g.fill(0);shuf([...Array(N*N).keys()]).slice(0,3).forEach(tog)}while(g.filter(x=>x).length<4);
+  const d=()=>{H('Blow Out All the Candles 🎂','Touching a candle also toggles the candles above, below, left, and right of it. Put them all out!',`<div class="gr" style="grid-template-columns:repeat(${N},var(--u))">${g.map((v,i)=>`<button class="cell ${v?'on':''}" data-i="${i}"></button>`).join('')}</div>`);
+    box.querySelectorAll('.cell').forEach(b=>b.onclick=()=>{snd('tick');tog(+b.dataset.i);g.some(x=>x)?d():win('a')})};d();
+}
+
+/* 2. Party Lights (Simon, 9 rounds, light positions shuffled from round 4) */
+function pB(){
+  const cols=['#ff5d73','#4cd964','#5ac8fa','#ffd23f'],N=9,seq=Array.from({length:N},()=>rn(4)),ord=[0,1,2,3];let lv=1,inp=[],busy=1;
+  H('Party Lights 💡','Remember the color sequence. From round 4 the lights get shuffled, so remember the <b>colors</b>, not the positions!<br><b id="st"></b>',`<div class="gr" style="grid-template-columns:repeat(2,calc(var(--u)*1.8))">${cols.map(c=>`<button class="lamp" style="background:${c}"></button>`).join('')}</div>`);
+  const Ls=[...box.querySelectorAll('.lamp')],st=$('#st'),fl=i=>{if(!Ls[0].isConnected)return;tone(NOTE[i],.3);Ls[i].classList.add('f');setTimeout(()=>Ls[i].classList.remove('f'),300)};
+  const play=()=>{busy=1;inp=[];if(lv>3)shuf(ord).forEach((p,i)=>Ls[i].style.order=p);st.textContent=`Round ${lv}/${N}: watch...`;for(let k=0;k<lv;k++)setTimeout(()=>fl(seq[k]),800+k*600);setTimeout(()=>{busy=0;st.textContent=`Round ${lv}/${N}: your turn!`},800+lv*600)};
+  Ls.forEach((b,i)=>b.onclick=()=>{if(busy)return;fl(i);inp.push(i);const k=inp.length-1;
+    if(inp[k]!==seq[k]){busy=1;snd('wrong',.5);lv=1;for(let j=0;j<N;j++)seq[j]=rn(4);st.textContent='Wrong! Starting over...';setTimeout(play,1300);return}
+    if(inp.length===lv){busy=1;if(lv===N)setTimeout(()=>win('b'),400);else{lv++;setTimeout(play,900)}}});
+  play();
+}
+
+/* 3. Deduction Lock (4 different digits, Mastermind-style clues) */
+function pC(){
+  const all=[];for(let i=0;i<1e4;i++){const s=(''+i).padStart(4,'0');if(new Set(s).size==4)all.push(s)}
+  const fb=(a,b)=>{let e=0,m=0;for(let i=0;i<4;i++)a[i]==b[i]?e++:b.includes(a[i])&&m++;return e+','+m};
+  const sec=all[rn(all.length)],cl=[];let cd=all;
+  while(cd.length>1){const g=all[rn(all.length)],f=fb(g,sec),n=cd.filter(c=>fb(g,c)==f);if(n.length<cd.length){cl.push([g,f]);cd=n}}
+  const dg=[0,0,0,0];
+  const d=(m='')=>{H('Deduction Lock 🔐','The code is 4 digits, all different. Work it out from these previous guesses:',`<ul class="cl">${cl.map(([g,f])=>`<li><b>${g}</b>: ${f.split(',')[0]} in the right place, ${f.split(',')[1]} correct digit but wrong place</li>`).join('')}</ul><div class="lock">${dg.map((v,i)=>`<div><button data-i="${i}" data-s="1">▲</button><b>${v}</b><button data-i="${i}" data-s="-1">▼</button></div>`).join('')}</div><button class="ok" id="ck">Open</button><p>${m}</p>`);
+    box.querySelectorAll('.lock button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;snd('tick');dg[i]=(dg[i]+ +b.dataset.s+10)%10;d()});
+    $('#ck').onclick=()=>{if(dg.join('')==sec)win('c');else{snd('wrong',.5);d('Not a match yet, check the clues again!')}}};d();
+}
+
+/* 4. Cake Puzzle 3x3 (sliding numbers 1-8, EASY: only a 14-move shuffle) */
+function pD(){
+  const N=3,L=N*N,t=[...Array(L)].map((_,i)=>(i+1)%L),ok=()=>t.every((v,j)=>v==(j+1)%L);let z=L-1,l=-1,mv=0;
+  do{for(let k=0;k<14;k++){const nb=[z-N,z+N,z%N?z-1:-1,z%N<N-1?z+1:-1].filter(n=>n>=0&&n<L&&n!=l),n=nb[rn(nb.length)];t[z]=t[n];t[n]=0;l=z;z=n}}while(ok());
+  const d=()=>{H('Cake Puzzle 🧩',`Sort the numbers 1–8, with the empty tile in the bottom-right corner. Moves: ${mv}`,`<div class="gr" style="grid-template-columns:repeat(${N},var(--u))">${t.map((v,i)=>`<button class="t" style="${v?`background:hsl(${v*40},55%,42%)`:'visibility:hidden'}" data-i="${i}">${v}</button>`).join('')}</div>`);
+    box.querySelectorAll('.t').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,z=t.indexOf(0);
+      if(Math.abs(i-z)==N||(Math.abs(i-z)==1&&(i/N|0)==(z/N|0))){t[z]=t[i];t[i]=0;mv++;snd('tap');ok()?win('d'):d()}else snd('wrong',.3)})};d();
+}
+
+/* 5. Cake Tower (Hanoi, EASY: 4 layers, minimum 15 moves) */
+function pE(){
+  const T=[[4,3,2,1],[],[]];let sel=-1,mv=0;
+  const d=()=>{H('Cake Tower 🍰',`Move the whole stack of cakes to the rightmost plate. A bigger cake can't be placed on a smaller one. Moves: ${mv}`,`<div class="tw">${T.map((p,i)=>`<div class="pg ${sel==i?'sel':''}" data-i="${i}">${p.map(s=>`<i style="width:${14+s*16}px;background:hsl(${s*50},70%,60%)"></i>`).join('')}</div>`).join('')}</div>`);
+    box.querySelectorAll('.pg').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;
+      if(sel<0){if(T[i].length){sel=i;snd('tick')}}
+      else{const a=T[sel],t=T[i];if(i!=sel){if(!t.length||t[t.length-1]>a[a.length-1]){t.push(a.pop());mv++;snd('tap')}else snd('wrong',.4)}sel=-1;if(T[2].length==4)return win('e')}
+      d()})};d();
+}
+
+/* 6. Gift Guards (honest Knights vs lying Imposters, 3 rounds, unique solution guaranteed) */
+function pF(){
+  let rd=0;const nm='ABCDEF';
+  const T=[(x)=>[`${nm[x]} is a knight`,s=>s[x]],(x)=>[`${nm[x]} is an imposter`,s=>!s[x]],
+    (x,y)=>[`${nm[x]} and ${nm[y]} are the same type`,s=>s[x]==s[y]],(x,y)=>[`${nm[x]} and ${nm[y]} are different types`,s=>s[x]!=s[y]],
+    (x,y,k)=>[`Exactly ${k} of us are knights`,s=>s.reduce((a,b)=>a+b,0)==k],
+    (x,y)=>[`At least one of ${nm[x]} or ${nm[y]} is a knight`,s=>s[x]|s[y]],(x,y)=>[`${nm[x]} and ${nm[y]} are both knights`,s=>s[x]&s[y]]];
+  const mk=n=>{for(;;){const S=[];for(let i=0;i<n;i++){const o=[...Array(n).keys()].filter(j=>j!=i),x=o[rn(o.length)];let y=o[rn(o.length)];if(y==x)y=o[(o.indexOf(x)+1)%o.length];S.push(T[rn(7)](x,y,rn(n+1)))}
+    const sol=[];for(let m=0;m<1<<n;m++){const s=[...Array(n)].map((_,i)=>m>>i&1);if(S.every((t,i)=>s[i]==(t[1](s)?1:0)))sol.push(s)}
+    if(sol.length==1)return{S,sol:sol[0]}}};
+  const go=()=>{const n=[4,5,6][rd],{S,sol}=mk(n),a=Array(n).fill(0);
+    const d=(m='')=>{H(`Gift Guards 🕵️ (${rd+1}/3)`,'Knights always tell the truth, imposters always lie. Work out what each guard is!',S.map((t,i)=>`<div class="rw"><b>${nm[i]}</b><span style="flex:1">“${t[0]}”</span><button data-i="${i}">${['❓ ?','😇 Knight','😈 Imposter'][a[i]]}</button></div>`).join('')+`<button class="ok" id="ck">Check</button><p>${m}</p>`);
+      box.querySelectorAll('.rw button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;snd('tick');a[i]=(a[i]+1)%3;d()});
+      $('#ck').onclick=()=>{if(a.every((v,i)=>v==(sol[i]?1:2))){rd++;if(rd<3){snd('key');go()}else win('f')}else{snd('wrong',.5);d('Not quite right, check your logic again!')}}};d()};
+  go();
+}
+
+/* 7. Light Circuit (rotate pipes so power from ⚡ reaches every tile) */
+function pG(){
+  const N=6,D=[[-1,0,1,4],[0,1,2,8],[1,0,4,1],[0,-1,8,2]],CH=' ╹╺┗╻┃┏┣╸┛━┻┓┫┳╋',m=Array(N*N).fill(0),seen=new Set([0]);
+  while(seen.size<N*N){const c=[...seen][rn(seen.size)],r=c/N|0,q=c%N,o=D.filter(([a,b])=>{const A=r+a,B=q+b;return A>=0&&A<N&&B>=0&&B<N&&!seen.has(A*N+B)});
+    if(!o.length)continue;const[a,b,f,g]=o[rn(o.length)],n=(r+a)*N+q+b;m[c]|=f;m[n]|=g;seen.add(n)}
+  m.forEach((v,i)=>{for(let k=rn(4);k--;)m[i]=((m[i]<<1)|(m[i]>>3))&15});
+  const pw=()=>{const s=new Set([0]),st=[0];while(st.length){const c=st.pop(),r=c/N|0,q=c%N;D.forEach(([a,b,f,g])=>{const A=r+a,B=q+b,n=A*N+B;if(A>=0&&A<N&&B>=0&&B<N&&!s.has(n)&&m[c]&f&&m[n]&g){s.add(n);st.push(n)}})}return s};
+  const d=()=>{const p=pw();H('Light Circuit ⚡','Tap a tile to rotate it. Connect the power source (the orange-outlined tile in the top-left corner) to every tile until they all glow yellow.',`<div class="gr" style="grid-template-columns:repeat(${N},calc(var(--u)*.85));gap:2px">${m.map((v,i)=>`<button class="t pp ${p.has(i)?'on':''}" data-i="${i}" style="${i?'':'outline:3px solid #ff9f1c'}">${CH[v]}</button>`).join('')}</div>`);
+    box.querySelectorAll('.pp').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;m[i]=((m[i]<<1)|(m[i]>>3))&15;snd('tick');pw().size==N*N?win('g'):d()})};d();
+}
+
+/* Confetti */
+function confetti(){
+  const c=$('#cf'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  const p=Array.from({length:150},()=>({x:Math.random()*c.width,y:-Math.random()*c.height,v:2+Math.random()*3,s:4+Math.random()*5,h:Math.random()*360,w:Math.random()*6.28}));let n=0;
+  (function f(){x.clearRect(0,0,c.width,c.height);p.forEach(o=>{o.y+=o.v;o.x+=Math.sin(o.w+=.05)*1.5;x.fillStyle=`hsl(${o.h},90%,60%)`;x.fillRect(o.x,o.y,o.s,o.s*.6)});++n<420?requestAnimationFrame(f):x.clearRect(0,0,c.width,c.height)})();
+}
+</script>
+</body></html>
