@@ -50,7 +50,7 @@ button{font-family:inherit}
 /* ===== SETTINGS: edit here, or use a link like ?name=Rina&message=... ===== */
 const Q=new URLSearchParams(location.search);
 const CFG={name:Q.get('name')||Q.get('nama')||'My Friend',
-  message:Q.get('message')||Q.get('pesan')||'May you live a long and healthy life, and may all your dreams come true one by one. Thank you for being such a precious person!'};
+  message:Q.get('message')||Q.get('pesan')||'HBD Yhhh <br><a href="https://drive.google.com/file/d/1SE04tfNmbf0N6HDlIdb76J4rNDQLuYt7/view?usp=drivesdk" target="_blank" style="color: #00d2ff; text-decoration: underline;">Klik di sini untuk melihat file</a>'};
 const $=s=>document.querySelector(s),box=$('#box'),M=$('#modal'),cv=$('#g'),ctx=cv.getContext('2d');
 const rn=n=>Math.random()*n|0,shuf=a=>{for(let i=a.length;i>1;){const j=rn(i--);[a[i],a[j]]=[a[j],a[i]]}return a};
 let paused=true,keys={},tgt=null;
